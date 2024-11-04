@@ -38,19 +38,11 @@ library SwapMath {
         bool zeroForOne = sqrtRatioCurrentX96 >= sqrtRatioTargetX96;
         bool exactIn = amountRemaining >= 0;
 
-        console.log("stepCurrent", sqrtRatioCurrentX96);
-        console.log("stepTarget", sqrtRatioTargetX96);
-        console.log("amountRemaining", uint256(amountRemaining));
-
         if (exactIn) {
             uint256 amountRemainingLessFee = FullMath.mulDiv(
                 uint256(amountRemaining),
                 1e6 - feePips,
                 1e6
-            );
-            console.log(
-                "amountRemainingLessFee",
-                uint256(amountRemainingLessFee)
             );
             amountIn = zeroForOne
                 ? SqrtPriceMath.getAmount0Delta(
@@ -65,7 +57,9 @@ library SwapMath {
                     liquidity,
                     true
                 );
-            console.log("amountInNew", amountIn);
+            console.log("amountIn", amountIn);
+            console.log("amountRemainingLessFess", amountRemainingLessFee);
+
             if (amountRemainingLessFee >= amountIn)
                 sqrtRatioNextX96 = sqrtRatioTargetX96;
             else
@@ -75,9 +69,7 @@ library SwapMath {
                     amountRemainingLessFee,
                     zeroForOne
                 );
-            console.log("currentPrice", sqrtRatioCurrentX96);
-            console.log("liquidity", liquidity);
-            console.log("targetPriceIfNotReach", sqrtRatioNextX96);
+            console.log("sqrtRatioNextX96", sqrtRatioNextX96);
         } else {
             amountOut = zeroForOne
                 ? SqrtPriceMath.getAmount1Delta(
@@ -92,6 +84,7 @@ library SwapMath {
                     liquidity,
                     false
                 );
+            console.log("AmountOutTry", amountOut);
             if (uint256(-amountRemaining) >= amountOut)
                 sqrtRatioNextX96 = sqrtRatioTargetX96;
             else
@@ -101,6 +94,7 @@ library SwapMath {
                     uint256(-amountRemaining),
                     zeroForOne
                 );
+            console.log("Aqui", sqrtRatioNextX96);
         }
 
         bool max = sqrtRatioTargetX96 == sqrtRatioNextX96;
@@ -142,6 +136,8 @@ library SwapMath {
                 );
         }
 
+        // ME
+
         // cap the output amount to not exceed the remaining output amount
         if (!exactIn && amountOut > uint256(-amountRemaining)) {
             amountOut = uint256(-amountRemaining);
@@ -157,5 +153,14 @@ library SwapMath {
                 1e6 - feePips
             );
         }
+        console.log("amountRemaning");
+        console.logInt(amountRemaining);
+        console.log("amountOut", amountOut);
+        console.log("amountIn", amountIn);
+
+        console.log("feePips", feePips);
+
+        console.log("fee Amount");
+        console.log(feeAmount);
     }
 }

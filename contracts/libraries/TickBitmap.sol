@@ -2,6 +2,7 @@
 pragma solidity >=0.5.0;
 
 import "./BitMath.sol";
+import "hardhat/console.sol";
 
 /// @title Packed tick initialized state library
 /// @notice Stores a packed mapping of tick index to its initialized state
@@ -16,6 +17,11 @@ library TickBitmap {
     ) private pure returns (int16 wordPos, uint8 bitPos) {
         wordPos = int16(tick >> 8);
         bitPos = uint8(uint24(tick % 256));
+        // console.log("Tick");
+        // console.logInt(tick);
+        // console.log("Word Position");
+        // console.logInt(wordPos);
+        // console.log("Bit position", bitPos);
     }
 
     /// @notice Flips the initialized state for a given tick from false to true, or vice versa

@@ -482,6 +482,8 @@ contract UniswapV3Pool is IUniswapV3Pool, NoDelegateCall {
             }
         }
 
+        console.log("_feeGrowthGlobal1X128", _feeGrowthGlobal1X128);
+
         (uint256 feeGrowthInside0X128, uint256 feeGrowthInside1X128) = ticks
             .getFeeGrowthInside(
                 tickLower,
@@ -526,6 +528,7 @@ contract UniswapV3Pool is IUniswapV3Pool, NoDelegateCall {
                 liquidityDelta: int256(amount).toInt128()
             })
         );
+        //        console.logInt(amount0Int);
         amount0 = uint256(amount0Int);
         amount1 = uint256(amount1Int);
         uint256 balance0Before;
@@ -610,10 +613,14 @@ contract UniswapV3Pool is IUniswapV3Pool, NoDelegateCall {
                     liquidityDelta: -int256(amount).toInt128()
                 })
             );
+        console.log("Amount1Int");
+        console.logInt(amount1Int);
 
+        // Amount 0 e 1 de direito
         amount0 = uint256(-amount0Int);
         amount1 = uint256(-amount1Int);
 
+        // Soma com as fees (tokensOwned)
         if (amount0 > 0 || amount1 > 0) {
             (position.tokensOwed0, position.tokensOwed1) = (
                 position.tokensOwed0 + uint128(amount0),
@@ -689,6 +696,7 @@ contract UniswapV3Pool is IUniswapV3Pool, NoDelegateCall {
     {
         require(amountSpecified != 0, "AS");
 
+        // save initial slot0 to memory
         Slot0 memory slot0Start = slot0;
 
         require(slot0Start.unlocked, "LOK");
@@ -698,11 +706,13 @@ contract UniswapV3Pool is IUniswapV3Pool, NoDelegateCall {
                     sqrtPriceLimitX96 > TickMath.MIN_SQRT_RATIO
                 : sqrtPriceLimitX96 > slot0Start.sqrtPriceX96 &&
                     sqrtPriceLimitX96 < TickMath.MAX_SQRT_RATIO,
-            "SPL"
+            "specificAmount"
         );
 
+        // prevents reentrancy
         slot0.unlocked = false;
 
+        // cache initial state
         SwapCache memory cache = SwapCache({
             liquidityStart: liquidity,
             blockTimestamp: _blockTimestamp(),
@@ -714,8 +724,10 @@ contract UniswapV3Pool is IUniswapV3Pool, NoDelegateCall {
             computedLatestObservation: false
         });
 
+        // check if amount is IN (>0) our OUT (<0)
         bool exactInput = amountSpecified > 0;
 
+        // initialize the state that will be updated along the loop
         SwapState memory state = SwapState({
             amountSpecifiedRemaining: amountSpecified,
             amountCalculated: 0,
@@ -733,16 +745,24 @@ contract UniswapV3Pool is IUniswapV3Pool, NoDelegateCall {
             state.amountSpecifiedRemaining != 0 &&
             state.sqrtPriceX96 != sqrtPriceLimitX96
         ) {
+            // ME code
+            console.log("Entrou na iteracao");
+
             StepComputations memory step;
 
+            // initial price for the step
             step.sqrtPriceStartX96 = state.sqrtPriceX96;
 
+            // get the next initialized tick
             (step.tickNext, step.initialized) = tickBitmap
                 .nextInitializedTickWithinOneWord(
                     state.tick,
                     tickSpacing,
                     zeroForOne
                 );
+
+            console.log("step.tickNext");
+            console.logInt(step.tickNext);
 
             // ensure that we do not overshoot the min/max tick, as the tick bitmap is not aware of these bounds
             if (step.tickNext < TickMath.MIN_TICK) {
@@ -752,9 +772,8 @@ contract UniswapV3Pool is IUniswapV3Pool, NoDelegateCall {
             }
 
             // get the price for the next tick
-            console.log("tickNext", uint(step.tickNext));
+            // the next tick has been found by the tickBitmap
             step.sqrtPriceNextX96 = TickMath.getSqrtRatioAtTick(step.tickNext);
-            console.log("sqrtPriceNextX96", uint(step.sqrtPriceNextX96));
 
             // compute values to swap to the target tick, price limit, or point where input/output amount is exhausted
             (
@@ -775,11 +794,8 @@ contract UniswapV3Pool is IUniswapV3Pool, NoDelegateCall {
                 state.amountSpecifiedRemaining,
                 fee
             );
-            console.log("nextPrice", state.sqrtPriceX96);
-            console.log("AmountIn", step.amountIn);
-            console.log("AmountOut", step.amountOut);
-            console.log("feeAmount", step.feeAmount);
 
+            // update amountSpecified and amountCalculated
             if (exactInput) {
                 state.amountSpecifiedRemaining -= (step.amountIn +
                     step.feeAmount).toInt256();
@@ -802,11 +818,24 @@ contract UniswapV3Pool is IUniswapV3Pool, NoDelegateCall {
 
             // update global fee tracker
             if (state.liquidity > 0)
-                state.feeGrowthGlobalX128 += FullMath.mulDiv(
-                    step.feeAmount,
-                    FixedPoint128.Q128,
-                    state.liquidity
-                );
+                console.log("step.feeAmount", step.feeAmount);
+            console.log("state.liquidity", state.liquidity);
+
+            console.log(
+                "state.feeGrowthGlobalX128 before",
+                state.feeGrowthGlobalX128
+            );
+            state.feeGrowthGlobalX128 += FullMath.mulDiv(
+                step.feeAmount,
+                FixedPoint128.Q128,
+                state.liquidity
+            );
+            console.log(
+                "state.feeGrowthGlobalX128 after",
+                state.feeGrowthGlobalX128
+            );
+
+            // console.log("feeGrowthGlobalX128", state.feeGrowthGlobalX128);
 
             // shift tick if we reached the next price
             if (state.sqrtPriceX96 == step.sqrtPriceNextX96) {
@@ -861,6 +890,13 @@ contract UniswapV3Pool is IUniswapV3Pool, NoDelegateCall {
             }
         }
 
+        // console.log("amountSpecifiedRemaining");
+        // console.logInt(state.amountSpecifiedRemaining);
+        // console.log("amountCalulated");
+        // console.logInt(state.amountCalculated);
+        // console.log("sqrtPriceX96");
+        // console.logInt(state.sqrtPriceX96);
+
         // update tick and write an oracle entry if the tick change
         if (state.tick != slot0Start.tick) {
             (
@@ -896,6 +932,7 @@ contract UniswapV3Pool is IUniswapV3Pool, NoDelegateCall {
 
         // update fee growth global and, if necessary, protocol fees
         // overflow is acceptable, protocol has to withdraw before it hits type(uint128).max fees
+        console.log("state.feeGrowthGlobalX128", state.feeGrowthGlobalX128);
         if (zeroForOne) {
             feeGrowthGlobal0X128 = state.feeGrowthGlobalX128;
             if (state.protocolFee > 0) protocolFees.token0 += state.protocolFee;
